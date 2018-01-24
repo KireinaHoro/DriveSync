@@ -87,6 +87,12 @@ func (r ErrorChecksumMismatch) Error() string {
 	return string(r)
 }
 
+type ErrorSetMarkFailed string
+
+func (r ErrorSetMarkFailed) Error() string {
+	return string(r)
+}
+
 type logger string
 
 const loggerID = "logger_id"
@@ -513,7 +519,7 @@ func SyncDirectory(srv *drive.Service, path, category string) error {
 	// mark the folder as already synced
 	_, err = os.Create(markFilePath)
 	if err != nil {
-		return errors.New(fmt.Sprintf("failed to set synced mark: %v", err))
+		return ErrorSetMarkFailed(err.Error())
 	}
 	log.Printf("Sync completed for directory '%s' into category %s.", path, category)
 	return nil
@@ -551,7 +557,7 @@ func SyncFile(srv *drive.Service, path, category string) error {
 	log.Printf("Uploaded file '%s' (from %s) with ID %s", basename, path, *id)
 	_, err = os.Create(markFilePath)
 	if err != nil {
-		return errors.New(fmt.Sprintf("failed to set synced mark: %v", err))
+		return ErrorSetMarkFailed(err.Error())
 	}
 	log.Printf("Sync completed for file '%s' into category %s.", path, category)
 	return nil
@@ -595,7 +601,11 @@ func main() {
 		err = SyncFile(srv, target, category)
 	}
 	if err != nil {
-		log.Fatalf("Failed to sync '%s': %v", target, err)
+		if _, ok := err.(ErrorSetMarkFailed); ok {
+			log.Printf("Sync succeeded, yet failed to set sync mark: %v", err)
+		} else {
+			log.Fatalf("Failed to sync '%s': %v", target, err)
+		}
 	}
 	fmt.Println("Sync succeeded.")
 
