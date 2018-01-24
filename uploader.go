@@ -515,6 +515,45 @@ func SyncDirectory(srv *drive.Service, path, category string) error {
 	if err != nil {
 		return errors.New(fmt.Sprintf("failed to set synced mark: %v", err))
 	}
+	log.Printf("Sync completed for directory '%s' into category %s.", path, category)
+	return nil
+}
+
+// SyncFile accepts a path to upload to Google Drive to the specified category,
+// returning any error that happens in the process.
+//
+// It creates a (".sync_finished-"+filepath.Base(path)) mark file in the directory containing
+// the file, and will return an ErrorAlreadySynced directly if that mark is present.
+func SyncFile(srv *drive.Service, path, category string) error {
+	// clean the path to avoid surprises
+	path = filepath.Clean(path)
+	parentPath, basename := filepath.Split(path)
+	markFilePath := parentPath + ".sync_finished-" + basename
+	// check if we have the mark file
+	if _, err := os.Stat(markFilePath); !os.IsNotExist(err) {
+		return ErrorAlreadySynced("file already synced")
+	}
+	parentID, err := GetUploadLocation(srv, category)
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	routineID := fmt.Sprintf("%05x", rand.Uint32()%0xfffff)
+	id := new(string)
+	err = WithRetry(ctxWithLoggerID(ctx, routineID), func() error {
+		var err error
+		*id, err = CreateFile(srv, path, parentID)
+		return err
+	}, RetryIfNeeded)
+	if err != nil {
+		log.Fatalf("Unexpected error while uploading file '%s' (from %s): %v", basename, path, err)
+	}
+	log.Printf("Uploaded file '%s' (from %s) with ID %s", basename, path, *id)
+	_, err = os.Create(markFilePath)
+	if err != nil {
+		return errors.New(fmt.Sprintf("failed to set synced mark: %v", err))
+	}
+	log.Printf("Sync completed for file '%s' into category %s.", path, category)
 	return nil
 }
 
@@ -532,11 +571,15 @@ func main() {
 	// authenticate to Google Drive server to get *drive.Service
 	srv := Authenticate()
 
-	fmt.Print("Enter folder to sync: ")
+	fmt.Print("Enter target to sync: ")
 	target, err := reader.ReadString('\n')
 	target = strings.TrimRight(target, "\n")
 	if err != nil {
 		log.Fatalf("Failed to scan: %v", err)
+	}
+	info, err := os.Stat(target)
+	if err != nil {
+		log.Fatalf("Failed to stat target '%s': %v", target, err)
 	}
 	fmt.Print("Enter desired category: ")
 	category, err := reader.ReadString('\n')
@@ -544,8 +587,13 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to scan: %v", err)
 	}
-
-	err = SyncDirectory(srv, target, category)
+	if info.IsDir() {
+		fmt.Printf("Syncing directory '%s'...\n", target)
+		err = SyncDirectory(srv, target, category)
+	} else {
+		fmt.Printf("Syncing file '%s'...\n", target)
+		err = SyncFile(srv, target, category)
+	}
 	if err != nil {
 		log.Fatalf("Failed to sync '%s': %v", target, err)
 	}
