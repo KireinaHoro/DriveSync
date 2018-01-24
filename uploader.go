@@ -498,8 +498,7 @@ func SyncDirectory(srv *drive.Service, path, category string) error {
 					return err
 				}, RetryIfNeeded)
 				if err != nil {
-					// TODO refine failure handling
-					log.Fatalf("Failed to upload file '%s' (from %s): %v", info.Name(), path, err)
+					log.Fatalf("Unexpected error while uploading file '%s' (from %s): %v", info.Name(), path, err)
 				}
 				log.Printf("Uploaded file '%s' (from %s) with ID %s", info.Name(), path, *id)
 			}()
@@ -551,4 +550,5 @@ func main() {
 		log.Fatalf("Failed to sync '%s': %v", target, err)
 	}
 	fmt.Println("Sync succeeded.")
+
 }
