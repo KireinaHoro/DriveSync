@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -43,12 +44,31 @@ var (
 )
 
 const (
-	archiveRootName   = "archive"
 	driveFolderType   = "application/vnd.google-apps.folder"
-	forceRecheck      = true
 	retryRatio        = 2
 	retryStartingRate = 1
 )
+
+var (
+	archiveRootName string // "archive"
+	target          string // ""
+	category        string // "Uncategorized"
+	forceRecheck    bool   // true
+	interactive     bool   // false
+	verbose         bool   // false
+)
+
+// initFlags initializes the command-line arguments.
+func initFlags() {
+	flag.StringVar(&archiveRootName, "root", "archive", "name of the archive root")
+	flag.StringVar(&target, "target", "", "target directory to sync")
+	flag.StringVar(&category, "category", "Uncategorized", "destination category")
+	flag.BoolVar(&forceRecheck, "recheck", true, "force file checksum recheck")
+	flag.BoolVar(&interactive, "interactive", false, "work interactively")
+	flag.BoolVar(&verbose, "verbose", false, "verbose output")
+
+	flag.Parse()
+}
 
 // SafeMap is a concurrent-safe map[string]string
 type SafeMap struct {
@@ -392,7 +412,9 @@ func WithRetry(ctx context.Context, fn func() error, shouldRetry func(error) boo
 	l := getLogger(ctx)
 	err := fn()
 	if shouldRetry(err) {
-		l.Printf("Need to retry due to: %v", err)
+		if verbose {
+			l.Printf("Need to retry due to: %v", err)
+		}
 		err = retry(ctx, fn, shouldRetry, retryStartingRate, retryRatio)
 	}
 	if err != nil {
@@ -405,7 +427,9 @@ func WithRetry(ctx context.Context, fn func() error, shouldRetry func(error) boo
 // worth trying occurs.
 func retry(ctx context.Context, fn func() error, shouldRetry func(error) bool, currentRate, ratio int) error {
 	l := getLogger(ctx)
-	l.Printf("Waiting %d second(s) before retrying...", currentRate)
+	if verbose {
+		l.Printf("Waiting %d second(s) before retrying...", currentRate)
+	}
 	time.Sleep(time.Duration(currentRate) * time.Second)
 	err := fn()
 	if shouldRetry(err) {
@@ -490,7 +514,9 @@ func SyncDirectory(srv *drive.Service, path, category string) error {
 				// record parent entry
 				parentIDs[path] = *id
 				//log.Println("added parent map entry: ", path, id)
-				log.Printf("Created directory '%s' (from %s) with ID %s", info.Name(), path, *id)
+				if verbose {
+					log.Printf("Created directory '%s' (from %s) with ID %s", info.Name(), path, *id)
+				}
 			}
 		} else {
 			uploadWg.Add(1)
@@ -506,7 +532,9 @@ func SyncDirectory(srv *drive.Service, path, category string) error {
 				if err != nil {
 					log.Fatalf("Unexpected error while uploading file '%s' (from %s): %v", info.Name(), path, err)
 				}
-				log.Printf("Uploaded file '%s' (from %s) with ID %s", info.Name(), path, *id)
+				if verbose {
+					log.Printf("Uploaded file '%s' (from %s) with ID %s", info.Name(), path, *id)
+				}
 			}()
 		}
 		return nil
@@ -521,7 +549,9 @@ func SyncDirectory(srv *drive.Service, path, category string) error {
 	if err != nil {
 		return ErrorSetMarkFailed(err.Error())
 	}
-	log.Printf("Sync completed for directory '%s' into category %s.", path, category)
+	if verbose {
+		log.Printf("Sync completed for directory '%s' into category %s.", path, category)
+	}
 	return nil
 }
 
@@ -554,16 +584,22 @@ func SyncFile(srv *drive.Service, path, category string) error {
 	if err != nil {
 		log.Fatalf("Unexpected error while uploading file '%s' (from %s): %v", basename, path, err)
 	}
-	log.Printf("Uploaded file '%s' (from %s) with ID %s", basename, path, *id)
+	if verbose {
+		log.Printf("Uploaded file '%s' (from %s) with ID %s", basename, path, *id)
+	}
 	_, err = os.Create(markFilePath)
 	if err != nil {
 		return ErrorSetMarkFailed(err.Error())
 	}
-	log.Printf("Sync completed for file '%s' into category %s.", path, category)
+	if verbose {
+		log.Printf("Sync completed for file '%s' into category %s.", path, category)
+	}
 	return nil
 }
 
 func main() {
+	initFlags()
+
 	if runtime.GOOS == "darwin" {
 		// set up proxy for run in restricted network environment
 		proxyUrl, _ := url.Parse("http://127.0.0.1:8001")
@@ -571,27 +607,51 @@ func main() {
 	}
 
 	// we need to do this manually for old runtime
-	fmt.Println("Procs usable:", runtime.NumCPU())
+	if verbose {
+		fmt.Println("Procs usable:", runtime.NumCPU())
+	}
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	// authenticate to Google Drive server to get *drive.Service
 	srv := Authenticate()
 
-	fmt.Print("Enter target to sync: ")
-	target, err := reader.ReadString('\n')
-	target = strings.TrimRight(target, "\n")
-	if err != nil {
-		log.Fatalf("Failed to scan: %v", err)
-	}
-	info, err := os.Stat(target)
-	if err != nil {
-		log.Fatalf("Failed to stat target '%s': %v", target, err)
-	}
-	fmt.Print("Enter desired category: ")
-	category, err := reader.ReadString('\n')
-	category = strings.TrimRight(category, "\n")
-	if err != nil {
-		log.Fatalf("Failed to scan: %v", err)
+	var (
+		info os.FileInfo
+		err  error
+	)
+
+	if interactive {
+		fmt.Print("Enter target to sync: ")
+		target, err = reader.ReadString('\n')
+		target = strings.TrimRight(target, "\n")
+		if err != nil {
+			log.Fatalf("Failed to scan: %v", err)
+		}
+		info, err = os.Stat(target)
+		if err != nil {
+			log.Fatalf("Failed to stat target '%s': %v", target, err)
+		}
+		fmt.Print("Enter desired category: ")
+		category, err = reader.ReadString('\n')
+		category = strings.TrimRight(category, "\n")
+		if err != nil {
+			log.Fatalf("Failed to scan: %v", err)
+		}
+	} else {
+		if target == "" {
+			log.Fatal("Please specify target properly.")
+		}
+		if target[0] != '/' {
+			pwd, err := os.Getwd()
+			if err != nil {
+				log.Fatalf("Failed to get current working directory: %v", err)
+			}
+			target = filepath.Clean(pwd + "/" + target)
+		}
+		info, err = os.Stat(target)
+		if err != nil {
+			log.Fatalf("Failed to stat target '%s': %v", target, err)
+		}
 	}
 	if info.IsDir() {
 		fmt.Printf("Syncing directory '%s'...\n", target)
