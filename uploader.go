@@ -56,6 +56,7 @@ var (
 	forceRecheck    bool   // true
 	interactive     bool   // false
 	verbose         bool   // false
+	createMissing   bool   // false
 )
 
 // initFlags initializes the command-line arguments.
@@ -71,6 +72,7 @@ func initFlags() {
 	flag.BoolVar(&forceRecheck, "recheck", true, "force file checksum recheck")
 	flag.BoolVar(&interactive, "interactive", false, "work interactively")
 	flag.BoolVar(&verbose, "verbose", false, "verbose output")
+	flag.BoolVar(&createMissing, "create-missing", false, "create category if not exist")
 
 	flag.Parse()
 
@@ -263,6 +265,9 @@ func getLeafFromParent(srv *drive.Service, leafName, parentID string) (string, e
 
 // yesNoResponse prompts the user to make a choice, returning a boolean.
 func yesNoResponse(prompt string) bool {
+	if !interactive {
+		return false
+	}
 	fmt.Print(prompt + " [Y/n]: ")
 	for {
 		response, scanErr := reader.ReadString('\n')
@@ -289,7 +294,8 @@ func GetUploadLocation(srv *drive.Service, category string) (string, error) {
 	if archiveRootID == "" {
 		archiveRootID, err = getLeafFromParent(srv, archiveRootName, "root")
 		if err != nil {
-			if _, ok := err.(ErrorNotFound); ok && yesNoResponse("Archive root not found; create it now?") {
+			if _, ok := err.(ErrorNotFound); createMissing || (ok &&
+				yesNoResponse("Archive root not found; create it now?")) {
 				archiveRootID, err = CreateDirectory(srv, archiveRootName, "root")
 				if err != nil {
 					return "", errors.New(fmt.Sprintf("failed to create archive root '%s': %v",
