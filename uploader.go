@@ -60,14 +60,21 @@ var (
 
 // initFlags initializes the command-line arguments.
 func initFlags() {
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "\nUsage: %s [options] ( <target> || -interactive )\n\n",
+			filepath.Base(os.Args[0]))
+		flag.PrintDefaults()
+	}
+
 	flag.StringVar(&archiveRootName, "root", "archive", "name of the archive root")
-	flag.StringVar(&target, "target", "", "target directory to sync")
 	flag.StringVar(&category, "category", "Uncategorized", "destination category")
 	flag.BoolVar(&forceRecheck, "recheck", true, "force file checksum recheck")
 	flag.BoolVar(&interactive, "interactive", false, "work interactively")
 	flag.BoolVar(&verbose, "verbose", false, "verbose output")
 
 	flag.Parse()
+
+	target = flag.Arg(0)
 }
 
 // SafeMap is a concurrent-safe map[string]string
@@ -621,7 +628,7 @@ func main() {
 	)
 
 	if interactive {
-		fmt.Print("Enter target to sync: ")
+		fmt.Print("Enter target to sync, in absolute path: ")
 		target, err = reader.ReadString('\n')
 		target = strings.TrimRight(target, "\n")
 		if err != nil {
@@ -639,7 +646,9 @@ func main() {
 		}
 	} else {
 		if target == "" {
-			log.Fatal("Please specify target properly.")
+			fmt.Fprintln(os.Stderr, "Please specify target properly.")
+			flag.Usage()
+			os.Exit(1)
 		}
 		if target[0] != '/' {
 			pwd, err := os.Getwd()
