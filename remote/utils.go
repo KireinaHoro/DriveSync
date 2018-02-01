@@ -81,6 +81,9 @@ func getUploadLocation(reader *bufio.Reader, srv *drive.Service, category string
 					return "", errors.New(fmt.Sprintf("failed to create archive root '%s': %v",
 						C.ArchiveRootName, err))
 				}
+				if C.Verbose {
+					log.Printf("Created %q.", C.ArchiveRootName)
+				}
 			} else {
 				return "", errors.New(fmt.Sprintf("failed to retrieve archive root '%s': %v",
 					C.ArchiveRootName, err))
@@ -92,12 +95,15 @@ func getUploadLocation(reader *bufio.Reader, srv *drive.Service, category string
 	if !ok {
 		categoryID, err = getLeafFromParent(srv, category, C.ArchiveRootID)
 		if err != nil {
-			if _, ok := err.(E.ErrorNotFound); ok && yesNoResponse(reader, fmt.Sprintf(
-				"Category '%s' not found; create it now?", category)) {
+			if _, ok := err.(E.ErrorNotFound); C.CreateMissing || (ok &&
+			yesNoResponse(reader, fmt.Sprintf("Category '%s' not found; create it now?", category))) {
 				categoryID, err = createDirectory(srv, category, C.ArchiveRootID)
 				if err != nil {
 					return "", errors.New(fmt.Sprintf("failed to create category '%s': %v",
 						category, err))
+				}
+				if C.Verbose {
+					log.Printf("Created %q.", category)
 				}
 			} else {
 				return "", errors.New(fmt.Sprintf("failed to retrieve category '%s': %v",
