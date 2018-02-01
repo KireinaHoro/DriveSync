@@ -154,3 +154,23 @@ func SyncFile(reader *bufio.Reader, srv *drive.Service, path, category string) e
 	}
 	return nil
 }
+
+// Sync accepts a path to an object, either a directory or a file, and uploads it to Google
+// Drive to the specified category, returning any error that happens in the process.
+//
+// It calls the corresponding function (either `SyncDirectory` or `SyncFile`) for processing.
+func Sync(reader *bufio.Reader, srv *drive.Service, path, category string) error {
+	f, err := os.Open(path)
+	if err != nil {
+		return errors.New(fmt.Sprintf("failed to open path: %v", err))
+	}
+	if fi, err := f.Stat(); err != nil {
+		return errors.New(fmt.Sprintf("failed to stat path: %v", err))
+	} else {
+		if fi.IsDir() {
+			return SyncDirectory(reader, srv, path, category)
+		} else {
+			return SyncFile(reader, srv, path, category)
+		}
+	}
+}
