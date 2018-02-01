@@ -22,11 +22,11 @@ const (
 )
 
 var (
-	ArchiveRootName string // "archive"
-	Target          string // ""
-	Category        string // "Uncategorized"
-	ForceRecheck    bool   // true
-	Interactive     bool   // false
-	Verbose         bool   // false
-	CreateMissing   bool   // false
+	ArchiveRootName = "archive"
+	Target          = ""
+	Category        = "Uncategorized"
+	ForceRecheck    = true
+	Interactive     = false
+	Verbose         = false
+	CreateMissing   = false
 )
