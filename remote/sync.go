@@ -122,6 +122,10 @@ func SyncFile(reader *bufio.Reader, srv *drive.Service, path, category string) e
 	// clean the path to avoid surprises
 	path = filepath.Clean(path)
 	parentPath, basename := filepath.Split(path)
+	if _, ok := C.IgnoreList[basename]; ok {
+		// file to be ignored
+		return nil
+	}
 	markFilePath := parentPath + ".sync_finished-" + basename
 	// check if we have the mark file
 	if _, err := os.Stat(markFilePath); !os.IsNotExist(err) {
