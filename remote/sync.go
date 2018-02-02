@@ -29,8 +29,10 @@ func SyncDirectory(reader *bufio.Reader, srv *drive.Service, path, category stri
 	path = filepath.Clean(path)
 	markFilePath := path + "/.sync_finished"
 	// check if we have the mark file
-	if _, err := os.Stat(markFilePath); !os.IsNotExist(err) {
+	if _, err := os.Stat(markFilePath); err == nil {
 		return E.ErrorAlreadySynced("folder already synced")
+	} else if !os.IsNotExist(err) {
+		return errors.New(fmt.Sprintf("failed to check sync mark: %v", err))
 	}
 	// parentIDs: key: path; value: parent ID
 	parentIDs := make(map[string]string)
@@ -133,8 +135,10 @@ func SyncFile(reader *bufio.Reader, srv *drive.Service, path, category string) e
 	}
 	markFilePath := parentPath + ".sync_finished-" + basename
 	// check if we have the mark file
-	if _, err := os.Stat(markFilePath); !os.IsNotExist(err) {
+	if _, err := os.Stat(markFilePath); err == nil {
 		return E.ErrorAlreadySynced("file already synced")
+	} else if !os.IsNotExist(err) {
+		return errors.New(fmt.Sprintf("failed to check sync mark: %v", err))
 	}
 	parentID, err := getUploadLocation(reader, srv, category)
 	if err != nil {
