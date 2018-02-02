@@ -6,9 +6,10 @@ import (
 
 var (
 	IgnoreList = map[string]struct{}{
-		".DS_Store":      {},
-		".localized":     {},
-		".idea":          {},
+		".DS_Store":  {},
+		".localized": {},
+		".idea":      {},
+		".git":       {},
 	}
 	ArchiveRootID string
 	CategoryIDs   = U.NewSafeMap()
