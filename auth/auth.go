@@ -15,6 +15,8 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/drive/v3"
+
+	C "github.com/KireinaHoro/DriveSync/config"
 )
 
 // getClient uses a Context and Config to retrieve a Token
@@ -26,8 +28,14 @@ func getClient(ctx context.Context, config *oauth2.Config) *http.Client {
 	}
 	tok, err := tokenFromFile(cacheFile)
 	if err != nil {
-		tok = getTokenFromWeb(config)
-		saveToken(cacheFile, tok)
+		if C.Interactive {
+			tok = getTokenFromWeb(config)
+			saveToken(cacheFile, tok)
+		} else {
+			// we shouldn't try to prompt the user to login if not in interactive mode
+			log.Fatal("Failed to get token while not in interactive mode; use interactive mode" +
+				" to get token from remote")
+		}
 	}
 	return config.Client(ctx, tok)
 }
