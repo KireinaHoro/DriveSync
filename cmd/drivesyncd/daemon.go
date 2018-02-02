@@ -37,6 +37,19 @@ func main() {
 	C.CreateMissing = true
 	C.Category = "Playground"
 
+	currentUser, err := user.Current()
+	if err != nil {
+		log.Fatalf("E: Failed to get current user: %v", err)
+	}
+	targetPath = filepath.Clean(currentUser.HomeDir + "/Documents")
+
+	lock, err := daemon.OpenLockFile(targetPath + "/.drivesync-lock", 0644)
+	if err != nil {
+		log.Fatalf("E: Failed to open lock file: %v", err)
+	} else if err = lock.Lock(); err != nil {
+		log.Fatalf("E: Failed to lock (maybe another daemon is running?): %v", err)
+	}
+
 	// initialize context for forking into background
 	ctx := &daemon.Context{
 		PidFileName: filepath.Base(os.Args[0]) + ".pid",
@@ -63,18 +76,6 @@ func main() {
 	}
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
-	currentUser, err := user.Current()
-	if err != nil {
-		log.Fatalf("E: Failed to get current user: %v", err)
-	}
-	targetPath = filepath.Clean(currentUser.HomeDir + "/Documents")
-
-	lock, err := daemon.OpenLockFile(targetPath + "/.drivesync-lock", 0644)
-	if err != nil {
-		log.Fatalf("E: Failed to open lock file: %v", err)
-	} else if err = lock.Lock(); err != nil {
-		log.Fatalf("E: Failed to lock (maybe another daemon is running?): %v", err)
-	}
 	// initialize watcher
 	w := watcher.New()
 	w.IgnoreHiddenFiles(true)
