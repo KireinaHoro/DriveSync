@@ -1,2 +1,6 @@
 .idea
 .DS_Store
+cmd/drivesyncd/*.pid
+cmd/drivesyncd/*.log
+*.pid
+*.log
