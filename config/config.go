@@ -9,7 +9,6 @@ var (
 		".DS_Store":      {},
 		".localized":     {},
 		".idea":          {},
-		".sync_finished": {},
 	}
 	ArchiveRootID string
 	CategoryIDs   = U.NewSafeMap()

@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
 	"golang.org/x/net/context"
@@ -40,6 +41,8 @@ func SyncDirectory(reader *bufio.Reader, srv *drive.Service, path, category stri
 			return err
 		}
 		if _, ok := C.IgnoreList[info.Name()]; ok {
+			return nil
+		} else if strings.HasPrefix(info.Name(), ".sync_finished") {
 			return nil
 		}
 		parentPath, _ := filepath.Split(path)
@@ -124,6 +127,8 @@ func SyncFile(reader *bufio.Reader, srv *drive.Service, path, category string) e
 	parentPath, basename := filepath.Split(path)
 	if _, ok := C.IgnoreList[basename]; ok {
 		// file to be ignored
+		return nil
+	} else if strings.HasPrefix(basename, ".sync_finished") {
 		return nil
 	}
 	markFilePath := parentPath + ".sync_finished-" + basename
