@@ -58,6 +58,11 @@ func ReadConfig() error {
 	if err != nil {
 		return errors.New(fmt.Sprintf("failed to get config path: %v", err))
 	}
+	usr, err := user.Current()
+	if err != nil {
+		return err
+	}
+	pathUser := usr.HomeDir + "/drivesyncd"
 	if _, err := os.Stat(configPath); err != nil {
 		log.Print("W: Config file doesn't exist. Creating a default one...")
 		parentPath, _ := filepath.Split(configPath)
@@ -73,16 +78,12 @@ func ReadConfig() error {
 		//enc := json.NewEncoder(f)
 		//enc.SetIndent("", "\t")
 		var logPath, pidPath string
-		usr, err := user.Current()
-		if err != nil {
-			return err
-		}
 		if usr.Uid == "0" {
 			logPath = "/var/log"
 			pidPath = "/var/run"
 		} else {
-			logPath = usr.HomeDir
-			pidPath = usr.HomeDir
+			logPath = pathUser
+			pidPath = pathUser
 		}
 		Config = config{
 			ArchiveRootName:   ArchiveRootName,
@@ -118,6 +119,22 @@ func ReadConfig() error {
 	}
 	if Config.Target != "" {
 		Config.Target = filepath.Clean(Config.Target)
+	}
+	if usr.Uid != "0" {
+		f, err := os.Create(filepath.Dir(Config.LogFile) + "/.test-drivesyncd")
+		if err != nil {
+			log.Printf("W: Failed to open log file for writing: %v", err)
+			log.Print("W: Falling back to storing things under user home...")
+			err = os.MkdirAll(pathUser, os.ModePerm)
+			if err != nil {
+				log.Fatalf("E: %v", err)
+			}
+			Config.LogFile = pathUser + "/drivesyncd.log"
+			Config.PidFile = pathUser + "/drivesyncd.pid"
+		} else {
+			f.Close()
+			os.Remove(f.Name())
+		}
 	}
 	return nil
 }
