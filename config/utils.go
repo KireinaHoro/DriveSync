@@ -70,8 +70,8 @@ func ReadConfig() error {
 			return errors.New(fmt.Sprintf("failed to open config file: %v", err))
 		}
 		defer f.Close()
-		enc := json.NewEncoder(f)
-		enc.SetIndent("", "\t")
+		//enc := json.NewEncoder(f)
+		//enc.SetIndent("", "\t")
 		var logPath, pidPath string
 		usr, err := user.Current()
 		if err != nil {
@@ -97,7 +97,11 @@ func ReadConfig() error {
 			Verbose:           Verbose,
 			UseProxy:          UseProxy,
 		}
-		err = enc.Encode(Config)
+		b, err := json.MarshalIndent(Config, "", "\t")
+		if err != nil {
+			return errors.New(fmt.Sprintf("failed to marshal config: %v", err))
+		}
+		_, err = f.Write(b)
 		if err != nil {
 			return errors.New(fmt.Sprintf("failed to write the default config file: %v", err))
 		}
