@@ -95,7 +95,7 @@ func main() {
 	if err != nil {
 		log.Printf("E: %v", err)
 	}
-	log.Println(" I: Daemon terminated.")
+	log.Println("I: Daemon terminated.")
 }
 
 func termHandler(sig os.Signal) error {
