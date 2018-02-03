@@ -5,8 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -26,12 +24,12 @@ func initFlags() {
 		flag.PrintDefaults()
 	}
 
-	flag.StringVar(&C.ArchiveRootName, "root", "archive", "name of the archive root")
-	flag.StringVar(&C.Category, "category", "Uncategorized", "destination category")
-	flag.BoolVar(&C.ForceRecheck, "recheck", true, "force file checksum recheck")
+	flag.StringVar(&C.Config.ArchiveRootName, "root", "archive", "name of the archive root")
+	flag.StringVar(&C.Config.DefaultCategory, "category", "Uncategorized", "destination category")
+	flag.BoolVar(&C.Config.ForceRecheck, "recheck", true, "force file checksum recheck")
 	flag.BoolVar(&C.Interactive, "interactive", false, "work interactively")
-	flag.BoolVar(&C.Verbose, "verbose", false, "verbose output")
-	flag.BoolVar(&C.CreateMissing, "create-missing", false, "create category if not exist")
+	flag.BoolVar(&C.Config.Verbose, "verbose", true, "verbose output")
+	flag.BoolVar(&C.Config.CreateMissing, "create-missing", false, "create category if not exist")
 
 	flag.Parse()
 
@@ -39,18 +37,23 @@ func initFlags() {
 }
 
 func main() {
+	// process default configurations
+	err := C.ReadConfig()
+	if err != nil {
+		log.Fatalf("Failed to read config: %v", err)
+	}
+
+	// process commandline flags
 	initFlags()
 
 	reader := bufio.NewReader(os.Stdin)
 
-	if runtime.GOOS == "darwin" {
-		// set up proxy for run in restricted network environment
-		proxyUrl, _ := url.Parse("http://127.0.0.1:8001")
-		http.DefaultTransport = &http.Transport{Proxy: http.ProxyURL(proxyUrl)}
+	if C.Config.UseProxy {
+		C.ProxySetup()
 	}
 
 	// we need to do this manually for old runtime
-	if C.Verbose {
+	if C.Config.Verbose {
 		fmt.Println("Procs usable:", runtime.NumCPU())
 	}
 	runtime.GOMAXPROCS(runtime.NumCPU())
@@ -58,10 +61,7 @@ func main() {
 	// authenticate to Google Drive server to get *drive.Service
 	srv := A.Authenticate()
 
-	var (
-		info os.FileInfo
-		err  error
-	)
+	var info os.FileInfo
 
 	if C.Interactive {
 		fmt.Print("Enter target to sync, in absolute path: ")
@@ -75,8 +75,8 @@ func main() {
 			log.Fatalf("Failed to stat target '%s': %v", C.Target, err)
 		}
 		fmt.Print("Enter desired category: ")
-		C.Category, err = reader.ReadString('\n')
-		C.Category = strings.TrimRight(C.Category, "\n")
+		C.Config.DefaultCategory, err = reader.ReadString('\n')
+		C.Config.DefaultCategory = strings.TrimRight(C.Config.DefaultCategory, "\n")
 		if err != nil {
 			log.Fatalf("Failed to scan: %v", err)
 		}
@@ -100,10 +100,10 @@ func main() {
 	}
 	if info.IsDir() {
 		fmt.Printf("Syncing directory '%s'...\n", C.Target)
-		err = R.SyncDirectory(reader, srv, C.Target, C.Category)
+		err = R.SyncDirectory(reader, srv, C.Target, C.Config.DefaultCategory)
 	} else {
 		fmt.Printf("Syncing file '%s'...\n", C.Target)
-		err = R.SyncFile(reader, srv, C.Target, C.Category)
+		err = R.SyncFile(reader, srv, C.Target, C.Config.DefaultCategory)
 	}
 	if err != nil {
 		if _, ok := err.(E.ErrorSetMarkFailed); ok {

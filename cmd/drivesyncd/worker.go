@@ -25,7 +25,7 @@ func worker() {
 			select {
 			case event := <-w.Event:
 				go func() {
-					err := R.Sync(nil, srv, event.Path, C.Category)
+					err := R.SyncWithGuess(nil, srv, event.Path, C.NoGuessing)
 					if err != nil {
 						if _, ok := err.(E.ErrorAlreadySynced); ok {
 							log.Printf("I: Already synced: %q", event.Path)
@@ -46,13 +46,13 @@ func worker() {
 		}
 	}()
 
-	w.Add(targetPath)
+	w.Add(C.Config.Target)
 	// we only care about new file events
 	w.FilterOps(watcher.Create)
 
 	log.Print("I: Daemon started.")
 
-	f, err := os.Open(targetPath)
+	f, err := os.Open(C.Config.Target)
 	if err != nil {
 		log.Fatalf("E: Failed to open target: %v", err)
 	}
@@ -66,7 +66,7 @@ func worker() {
 	log.Println("I: Syncing files/folders...")
 	children, err := f.Readdirnames(-1)
 	for _, v := range children {
-		itemPath := targetPath + "/" + v
+		itemPath := C.Config.Target + "/" + v
 		err := R.Sync(nil, srv, itemPath, C.Category)
 		if err != nil {
 			if _, ok := err.(E.ErrorAlreadySynced); ok {
@@ -79,7 +79,7 @@ func worker() {
 	log.Println("I: Sync completed.")
 
 	// start watching
-	log.Printf("I: Starting watch of target %q...", targetPath)
+	log.Printf("I: Starting watch of target %q...", C.Config.Target)
 
 	if err := w.Start(100 * time.Millisecond); err != nil {
 		log.Fatalf("E: Failed to start watcher: %s", err)

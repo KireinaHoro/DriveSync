@@ -77,7 +77,7 @@ func SyncDirectory(reader *bufio.Reader, srv *drive.Service, path, category stri
 				// record parent entry
 				parentIDs[path] = *id
 				//log.Println("added parent map entry: ", path, id)
-				if C.Verbose {
+				if C.Config.Verbose {
 					log.Printf("Created directory '%s' (from %s) with ID %s", info.Name(), path, *id)
 				}
 			}
@@ -95,7 +95,7 @@ func SyncDirectory(reader *bufio.Reader, srv *drive.Service, path, category stri
 				if err != nil {
 					log.Fatalf("Unexpected error while uploading file '%s' (from %s): %v", info.Name(), path, err)
 				}
-				if C.Verbose {
+				if C.Config.Verbose {
 					log.Printf("Uploaded file '%s' (from %s) with ID %s", info.Name(), path, *id)
 				}
 			}()
@@ -112,7 +112,7 @@ func SyncDirectory(reader *bufio.Reader, srv *drive.Service, path, category stri
 	if err != nil {
 		return E.ErrorSetMarkFailed(err.Error())
 	}
-	if C.Verbose {
+	if C.Config.Verbose {
 		log.Printf("Sync completed for directory '%s' into category %s.", path, category)
 	}
 	return nil
@@ -155,14 +155,14 @@ func SyncFile(reader *bufio.Reader, srv *drive.Service, path, category string) e
 	if err != nil {
 		log.Fatalf("Unexpected error while uploading file '%s' (from %s): %v", basename, path, err)
 	}
-	if C.Verbose {
+	if C.Config.Verbose {
 		log.Printf("Uploaded file '%s' (from %s) with ID %s", basename, path, *id)
 	}
 	_, err = os.Create(markFilePath)
 	if err != nil {
 		return E.ErrorSetMarkFailed(err.Error())
 	}
-	if C.Verbose {
+	if C.Config.Verbose {
 		log.Printf("Sync completed for file '%s' into category %s.", path, category)
 	}
 	return nil
@@ -186,4 +186,10 @@ func Sync(reader *bufio.Reader, srv *drive.Service, path, category string) error
 			return SyncFile(reader, srv, path, category)
 		}
 	}
+}
+
+// SyncWithGuess accepts a C.Guesser and relevant arguments to call Sync, guessing the appropriate
+// category automatically.
+func SyncWithGuess(reader *bufio.Reader, srv *drive.Service, path string, guesser C.Guesser) error {
+	return Sync(reader, srv, path, guesser.Guess(filepath.Base(path)))
 }

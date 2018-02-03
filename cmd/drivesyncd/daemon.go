@@ -3,11 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
-	"net/http"
-	"net/url"
 	"os"
-	"os/user"
-	"path/filepath"
 	"runtime"
 	"syscall"
 
@@ -21,34 +17,29 @@ import (
 )
 
 var (
-	targetPath string
-	w          *watcher.Watcher
-	lock       *daemon.LockFile
-	srv        *drive.Service
-	done       chan struct{}
+	w    *watcher.Watcher
+	lock *daemon.LockFile
+	srv  *drive.Service
+	done chan struct{}
 )
 
 func main() {
+	// read config
+	err := C.ReadConfig()
+	if err != nil {
+		log.Fatalf("E: Failed to read config: %v", err)
+	}
+	if C.Config.Target == "" {
+		log.Fatal(`E: Please set field "target" in configuration file.`)
+	}
+
 	srv = A.Authenticate()
 
-	if runtime.GOOS == "darwin" {
-		// set up proxy for run in restricted network environment
-		proxyUrl, _ := url.Parse("http://127.0.0.1:8001")
-		http.DefaultTransport = &http.Transport{Proxy: http.ProxyURL(proxyUrl)}
+	if C.Config.UseProxy {
+		C.ProxySetup()
 	}
 
-	// temporary settings for developing
-	C.Verbose = true
-	C.CreateMissing = true
-	C.Category = "Playground"
-
-	currentUser, err := user.Current()
-	if err != nil {
-		log.Fatalf("E: Failed to get current user: %v", err)
-	}
-	targetPath = filepath.Clean(currentUser.HomeDir + "/Documents")
-
-	lock, err = daemon.OpenLockFile(targetPath+"/.drivesync-lock", 0644)
+	lock, err = daemon.OpenLockFile(C.Config.Target+"/.drivesync-lock", 0644)
 	if err != nil {
 		log.Fatalf("E: Failed to open lock file: %v", err)
 	} else if err = lock.Lock(); err != nil {
@@ -62,9 +53,9 @@ func main() {
 
 	// initialize context for forking into background
 	ctx := &daemon.Context{
-		PidFileName: filepath.Base(os.Args[0]) + ".pid",
+		PidFileName: C.Config.PidFile,
 		PidFilePerm: 0644,
-		LogFileName: filepath.Base(os.Args[0]) + ".log",
+		LogFileName: C.Config.LogFile,
 		LogFilePerm: 0640,
 		WorkDir:     "./",
 		Umask:       027,
@@ -82,7 +73,7 @@ func main() {
 
 	log.Println("----------------------------")
 	// we need to do this manually for old runtime
-	if C.Verbose {
+	if C.Config.Verbose {
 		log.Println("I: Procs usable:", runtime.NumCPU())
 	}
 	runtime.GOMAXPROCS(runtime.NumCPU())

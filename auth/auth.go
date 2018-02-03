@@ -99,15 +99,13 @@ func saveToken(file string, token *oauth2.Token) {
 
 // Authenticate authenticates the application with Google Drive
 // server and returns a *drive.Service for further operation.
+//
+// Note: Authenticate expects a populated C.Config. Remember to
+// call C.ReadConfig before calling this function.
 func Authenticate() *drive.Service {
 	ctx := context.Background()
 
-	usr, err := user.Current()
-	if err != nil {
-		log.Fatalf("Unable to get current user: %v", err)
-	}
-	path := usr.HomeDir + "/Documents/client_secret.json"
-	b, err := ioutil.ReadFile(path)
+	b, err := ioutil.ReadFile(C.Config.ClientSecretPath)
 	if err != nil {
 		log.Fatalf("Unable to read client secret file: %v", err)
 	}

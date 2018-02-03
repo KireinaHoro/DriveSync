@@ -72,21 +72,21 @@ func getUploadLocation(reader *bufio.Reader, srv *drive.Service, category string
 	var err error
 	// get the archive root
 	if C.ArchiveRootID == "" {
-		C.ArchiveRootID, err = getLeafFromParent(srv, C.ArchiveRootName, "root")
+		C.ArchiveRootID, err = getLeafFromParent(srv, C.Config.ArchiveRootName, "root")
 		if err != nil {
-			if _, ok := err.(E.ErrorNotFound); C.CreateMissing || (ok &&
+			if _, ok := err.(E.ErrorNotFound); C.Config.CreateMissing || (ok &&
 				yesNoResponse(reader, "Archive root not found; create it now?")) {
-				C.ArchiveRootID, err = createDirectory(srv, C.ArchiveRootName, "root")
+				C.ArchiveRootID, err = createDirectory(srv, C.Config.ArchiveRootName, "root")
 				if err != nil {
 					return "", errors.New(fmt.Sprintf("failed to create archive root '%s': %v",
-						C.ArchiveRootName, err))
+						C.Config.ArchiveRootName, err))
 				}
-				if C.Verbose {
-					log.Printf("Created %q.", C.ArchiveRootName)
+				if C.Config.Verbose {
+					log.Printf("Created %q.", C.Config.ArchiveRootName)
 				}
 			} else {
 				return "", errors.New(fmt.Sprintf("failed to retrieve archive root '%s': %v",
-					C.ArchiveRootName, err))
+					C.Config.ArchiveRootName, err))
 			}
 		}
 	}
@@ -95,14 +95,14 @@ func getUploadLocation(reader *bufio.Reader, srv *drive.Service, category string
 	if !ok {
 		categoryID, err = getLeafFromParent(srv, category, C.ArchiveRootID)
 		if err != nil {
-			if _, ok := err.(E.ErrorNotFound); C.CreateMissing || (ok &&
+			if _, ok := err.(E.ErrorNotFound); C.Config.CreateMissing || (ok &&
 			yesNoResponse(reader, fmt.Sprintf("Category '%s' not found; create it now?", category))) {
 				categoryID, err = createDirectory(srv, category, C.ArchiveRootID)
 				if err != nil {
 					return "", errors.New(fmt.Sprintf("failed to create category '%s': %v",
 						category, err))
 				}
-				if C.Verbose {
+				if C.Config.Verbose {
 					log.Printf("Created %q.", category)
 				}
 			} else {
@@ -139,7 +139,7 @@ func createDirectory(srv *drive.Service, leafName, parentID string) (string, err
 
 // createFile creates the file with path leafPath inside directory
 // with ID of parentID, uploads the contents of the file, and
-// returns the ID of the created file. If C.ForceRecheck is true, it checks if the MD5
+// returns the ID of the created file. If C.Config.ForceRecheck is true, it checks if the MD5
 // sums of remote and local matches.
 //
 // Note: the caller shall check if the file with leafName exists.
@@ -157,7 +157,7 @@ func createFile(srv *drive.Service, leafPath, parentID string) (string, error) {
 		Parents:     []string{parentID},
 	}
 	//info, err := srv.Files.Create(createInfo).Media(uploadFile).Fields("id, md5Checksum").Do()
-	// we don't need the md5Checksum field if C.ForceRecheck != true
+	// we don't need the md5Checksum field if C.Config.ForceRecheck != true
 	intermediateCall := srv.Files.Create(createInfo).Media(uploadFile)
 	if C.ForceRecheck {
 		intermediateCall = intermediateCall.Fields("id, md5Checksum")
