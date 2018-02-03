@@ -24,14 +24,16 @@ func worker() {
 		for {
 			select {
 			case event := <-w.Event:
-				err := R.Sync(nil, srv, event.Path, C.Category)
-				if err != nil {
-					if _, ok := err.(E.ErrorAlreadySynced); ok {
-						log.Printf("I: Already synced: %q", event.Path)
-					} else {
-						log.Printf("W: Failed to sync %q: %v", event.Path, err)
+				go func() {
+					err := R.Sync(nil, srv, event.Path, C.Category)
+					if err != nil {
+						if _, ok := err.(E.ErrorAlreadySynced); ok {
+							log.Printf("I: Already synced: %q", event.Path)
+						} else {
+							log.Printf("W: Failed to sync %q: %v", event.Path, err)
+						}
 					}
-				}
+				}()
 			case err := <-w.Error:
 				if err == watcher.ErrWatchedFileDeleted {
 					fmt.Println(err)
