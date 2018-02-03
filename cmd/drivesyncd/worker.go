@@ -67,16 +67,19 @@ func worker() {
 	children, err := f.Readdirnames(-1)
 	for _, v := range children {
 		itemPath := C.Config.Target + "/" + v
-		err := R.Sync(nil, srv, itemPath, C.Category)
-		if err != nil {
-			if _, ok := err.(E.ErrorAlreadySynced); ok {
-				log.Printf("I: Already synced: %q", itemPath)
-			} else {
-				log.Printf("W: Failed to sync %q: %v", itemPath, err)
+		go func() {
+			log.Printf("I: Syncing %q...", itemPath)
+			err := R.SyncWithGuess(nil, srv, itemPath, C.NoGuessing)
+			if err != nil {
+				if _, ok := err.(E.ErrorAlreadySynced); ok {
+					log.Printf("I: Already synced: %q", itemPath)
+				} else {
+					log.Printf("W: Failed to sync %q: %v", itemPath, err)
+				}
 			}
-		}
+		}()
 	}
-	log.Println("I: Sync completed.")
+	log.Println("I: Initial scan completed.")
 
 	// start watching
 	log.Printf("I: Starting watch of target %q...", C.Config.Target)
