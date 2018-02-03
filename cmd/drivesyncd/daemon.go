@@ -40,6 +40,7 @@ func main() {
 	}
 
 	lock, err = daemon.OpenLockFile(C.Config.Target+"/.drivesync-lock", 0644)
+	defer lock.Remove()
 	if err != nil {
 		log.Fatalf("E: Failed to open lock file: %v", err)
 	} else if err = lock.Lock(); err != nil {
