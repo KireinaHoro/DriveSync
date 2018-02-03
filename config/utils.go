@@ -116,7 +116,9 @@ func ReadConfig() error {
 	if err := dec.Decode(&Config); err != nil {
 		return errors.New(fmt.Sprintf("failed to decode config file: %v", dec.Decode(&Config)))
 	}
-	Config.Target = filepath.Clean(Config.Target)
+	if Config.Target != "" {
+		Config.Target = filepath.Clean(Config.Target)
+	}
 	return nil
 }
 
