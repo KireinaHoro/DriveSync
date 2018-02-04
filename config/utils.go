@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"time"
 
 	"github.com/pkg/errors"
 )
@@ -95,6 +96,7 @@ func ReadConfig(isDaemon bool) error {
 			PidFile:           pidPath + "/drivesyncd.pid",
 			RetryRatio:        RetryRatio,
 			RetryStartingRate: RetryStartingRate,
+			ScanInterval:      ScanInterval,
 			Verbose:           Verbose,
 			UseProxy:          UseProxy,
 		}
@@ -127,6 +129,9 @@ func ReadConfig(isDaemon bool) error {
 		newConfig.Target = filepath.Clean(newConfig.Target)
 	} else if isDaemon {
 		return errors.New(`please set field "target" in the configuration file`)
+	}
+	if _, err := time.ParseDuration(newConfig.ScanInterval); err != nil {
+		return errors.New(fmt.Sprintf("failed to parse scan-interval: %v", err))
 	}
 	if usr.Uid != "0" {
 		f, err := os.Create(filepath.Dir(newConfig.LogFile) + "/.test-drivesyncd")

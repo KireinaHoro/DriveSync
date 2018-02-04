@@ -85,8 +85,8 @@ func worker() {
 	// start watching
 	log.Printf("I: Starting watch of target %q...", conf.Target)
 
-	if err := w.Start(100 * time.Millisecond); err != nil {
+	interval, _ := time.ParseDuration(conf.ScanInterval)
+	if err := w.Start(interval); err != nil {
 		log.Fatalf("E: Failed to start watcher: %s", err)
 	}
 }
-

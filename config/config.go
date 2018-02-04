@@ -30,6 +30,7 @@ const (
 	Verbose           = true
 	CreateMissing     = false
 	UseProxy          = false
+	ScanInterval      = "100ms"
 )
 
 // Variables that only get used by `drivesync`
@@ -86,6 +87,7 @@ type config struct {
 	ProxyURL          string `json:"proxy-url"`
 	RetryRatio        int    `json:"retry-ratio"`
 	RetryStartingRate int    `json:"retry-starting-rate"`
+	ScanInterval      string `json:"scan-interval"`
 	// Config.Target denotes the directory to be watched when calling `drivesyncd`
 	Target   string `json:"target"`
 	UseProxy bool   `json:"use-proxy"`
