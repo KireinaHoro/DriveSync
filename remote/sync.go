@@ -129,10 +129,9 @@ func SyncFile(reader *bufio.Reader, srv *drive.Service, path, category string) e
 	// clean the path to avoid surprises
 	path = filepath.Clean(path)
 	parentPath, basename := filepath.Split(path)
-	if _, ok := C.IgnoreList[basename]; ok {
+	if _, ok := C.IgnoreList[basename]; ok || strings.HasPrefix(basename, ".sync_finished") {
 		// file to be ignored
-		return nil
-	} else if strings.HasPrefix(basename, ".sync_finished") {
+		log.Printf(`I: Useless file %q ignored for syncing.`, path)
 		return nil
 	}
 	markFilePath := parentPath + ".sync_finished-" + basename
