@@ -24,36 +24,37 @@ func initFlags() {
 		flag.PrintDefaults()
 	}
 
-	flag.StringVar(&C.Config.ArchiveRootName, "root", "archive", "name of the archive root")
-	flag.StringVar(&C.Config.DefaultCategory, "category", "Uncategorized", "destination category")
-	flag.BoolVar(&C.Config.ForceRecheck, "recheck", true, "force file checksum recheck")
+	conf := C.Config.Get()
+
+	flag.StringVar(&conf.ArchiveRootName, "root", conf.ArchiveRootName, "name of the archive root")
+	flag.StringVar(&conf.DefaultCategory, "category", conf.DefaultCategory, "destination category")
+	flag.BoolVar(&conf.ForceRecheck, "recheck", conf.ForceRecheck, "force file checksum recheck")
 	flag.BoolVar(&C.Interactive, "interactive", false, "work interactively")
-	flag.BoolVar(&C.Config.Verbose, "verbose", true, "verbose output")
-	flag.BoolVar(&C.Config.CreateMissing, "create-missing", false, "create category if not exist")
+	flag.BoolVar(&conf.Verbose, "verbose", conf.Verbose, "verbose output")
+	flag.BoolVar(&conf.CreateMissing, "create-missing", conf.CreateMissing, "create category if not exist")
 
 	flag.Parse()
 
 	C.Target = flag.Arg(0)
+	C.Config.Set(conf)
 }
 
 func main() {
 	// process default configurations
-	err := C.ReadConfig()
+	err := C.ReadConfig(false)
 	if err != nil {
 		log.Fatalf("Failed to read config: %v", err)
 	}
+
+	conf := C.Config.Get()
 
 	// process commandline flags
 	initFlags()
 
 	reader := bufio.NewReader(os.Stdin)
 
-	if C.Config.UseProxy {
-		C.ProxySetup()
-	}
-
 	// we need to do this manually for old runtime
-	if C.Config.Verbose {
+	if conf.Verbose {
 		fmt.Println("Procs usable:", runtime.NumCPU())
 	}
 	runtime.GOMAXPROCS(runtime.NumCPU())
@@ -75,8 +76,8 @@ func main() {
 			log.Fatalf("Failed to stat target '%s': %v", C.Target, err)
 		}
 		fmt.Print("Enter desired category: ")
-		C.Config.DefaultCategory, err = reader.ReadString('\n')
-		C.Config.DefaultCategory = strings.TrimRight(C.Config.DefaultCategory, "\n")
+		conf.DefaultCategory, err = reader.ReadString('\n')
+		conf.DefaultCategory = strings.TrimRight(conf.DefaultCategory, "\n")
 		if err != nil {
 			log.Fatalf("Failed to scan: %v", err)
 		}
@@ -100,10 +101,10 @@ func main() {
 	}
 	if info.IsDir() {
 		fmt.Printf("Syncing directory '%s'...\n", C.Target)
-		err = R.SyncDirectory(reader, srv, C.Target, C.Config.DefaultCategory)
+		err = R.SyncDirectory(reader, srv, C.Target, conf.DefaultCategory)
 	} else {
 		fmt.Printf("Syncing file '%s'...\n", C.Target)
-		err = R.SyncFile(reader, srv, C.Target, C.Config.DefaultCategory)
+		err = R.SyncFile(reader, srv, C.Target, conf.DefaultCategory)
 	}
 	if err != nil {
 		if _, ok := err.(E.ErrorSetMarkFailed); ok {

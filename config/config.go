@@ -1,6 +1,8 @@
 package config
 
 import (
+	"sync"
+
 	U "github.com/KireinaHoro/DriveSync/utils"
 )
 
@@ -44,7 +46,33 @@ var (
 var configPath string
 
 // Config is the global variable that holds the configuration for the running daemon.
-var Config config
+var Config = NewSafeConfig()
+
+// type safeConfig is the goroutine-safe config.
+type safeConfig struct {
+	v config
+	m sync.RWMutex
+}
+
+func (r *safeConfig) Get() config {
+	r.m.RLock()
+	defer r.m.RUnlock()
+	return r.v
+}
+
+func (r *safeConfig) Set(v config) {
+	r.m.Lock()
+	defer r.m.Unlock()
+	r.v = v
+}
+
+func NewSafeConfig() *safeConfig {
+	return &safeConfig{}
+}
+
+func NewConfig() config {
+	return config{}
+}
 
 // type config denotes the configuration read by the daemon.
 type config struct {

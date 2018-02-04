@@ -14,6 +14,7 @@ import (
 )
 
 func worker() {
+	conf := C.Config.Get()
 	// initialize watcher
 	w = watcher.New()
 	w.IgnoreHiddenFiles(true)
@@ -46,13 +47,13 @@ func worker() {
 		}
 	}()
 
-	w.Add(C.Config.Target)
+	w.Add(conf.Target)
 	// we only care about new file events
 	w.FilterOps(watcher.Create)
 
 	log.Print("I: Daemon started.")
 
-	f, err := os.Open(C.Config.Target)
+	f, err := os.Open(conf.Target)
 	if err != nil {
 		log.Fatalf("E: Failed to open target: %v", err)
 	}
@@ -66,7 +67,7 @@ func worker() {
 	log.Println("I: Syncing files/folders...")
 	children, err := f.Readdirnames(-1)
 	for _, v := range children {
-		itemPath := C.Config.Target + "/" + v
+		itemPath := conf.Target + "/" + v
 		go func() {
 			log.Printf("I: Syncing %q...", itemPath)
 			err := R.SyncWithGuess(nil, srv, itemPath, C.NoGuessing)
@@ -82,7 +83,7 @@ func worker() {
 	log.Println("I: Initial scan completed.")
 
 	// start watching
-	log.Printf("I: Starting watch of target %q...", C.Config.Target)
+	log.Printf("I: Starting watch of target %q...", conf.Target)
 
 	if err := w.Start(100 * time.Millisecond); err != nil {
 		log.Fatalf("E: Failed to start watcher: %s", err)

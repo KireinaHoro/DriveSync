@@ -24,27 +24,22 @@ func main() {
 	// parse flag
 	parseFlags()
 	// read config
-	err := C.ReadConfig()
+	err := C.ReadConfig(true)
 	if err != nil {
 		log.Fatalf("E: Failed to read config: %v", err)
 	}
-	if C.Config.Target == "" {
-		log.Fatal(`E: Please set field "target" in configuration file.`)
-	}
+
+	conf := C.Config.Get()
 
 	srv = A.Authenticate()
-
-	if C.Config.UseProxy {
-		C.ProxySetup()
-	}
 
 	registerSignals()
 
 	// initialize context for forking into background
 	ctx := &daemon.Context{
-		PidFileName: C.Config.PidFile,
+		PidFileName: conf.PidFile,
 		PidFilePerm: 0644,
-		LogFileName: C.Config.LogFile,
+		LogFileName: conf.LogFile,
 		LogFilePerm: 0640,
 		WorkDir:     "./",
 		Umask:       027,
@@ -54,7 +49,7 @@ func main() {
 	processCommand(ctx)
 
 	// we're launched as a daemon
-	lock, err = daemon.OpenLockFile(C.Config.Target+"/.drivesync-lock", 0644)
+	lock, err = daemon.OpenLockFile(conf.Target+"/.drivesync-lock", 0644)
 	defer lock.Remove()
 	if err != nil {
 		log.Fatalf("E: Failed to open lock file: %v", err)
@@ -73,7 +68,7 @@ func main() {
 
 	log.Println("----------------------------")
 	// we need to do this manually for old runtime
-	if C.Config.Verbose {
+	if conf.Verbose {
 		log.Println("I: Procs usable:", runtime.NumCPU())
 	}
 	runtime.GOMAXPROCS(runtime.NumCPU())

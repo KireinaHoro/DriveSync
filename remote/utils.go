@@ -69,24 +69,25 @@ func getLeafFromParent(srv *drive.Service, leafName, parentID string) (string, e
 
 // getUploadLocation resolves the folder ID of the given category.
 func getUploadLocation(reader *bufio.Reader, srv *drive.Service, category string) (string, error) {
+	conf := C.Config.Get()
 	var err error
 	// get the archive root
 	if C.ArchiveRootID == "" {
-		C.ArchiveRootID, err = getLeafFromParent(srv, C.Config.ArchiveRootName, "root")
+		C.ArchiveRootID, err = getLeafFromParent(srv, conf.ArchiveRootName, "root")
 		if err != nil {
-			if _, ok := err.(E.ErrorNotFound); C.Config.CreateMissing || (ok &&
+			if _, ok := err.(E.ErrorNotFound); conf.CreateMissing || (ok &&
 				yesNoResponse(reader, "Archive root not found; create it now?")) {
-				C.ArchiveRootID, err = createDirectory(srv, C.Config.ArchiveRootName, "root")
+				C.ArchiveRootID, err = createDirectory(srv, conf.ArchiveRootName, "root")
 				if err != nil {
 					return "", errors.New(fmt.Sprintf("failed to create archive root '%s': %v",
-						C.Config.ArchiveRootName, err))
+						conf.ArchiveRootName, err))
 				}
-				if C.Config.Verbose {
-					log.Printf("Created %q.", C.Config.ArchiveRootName)
+				if conf.Verbose {
+					log.Printf("Created %q.", conf.ArchiveRootName)
 				}
 			} else {
 				return "", errors.New(fmt.Sprintf("failed to retrieve archive root '%s': %v",
-					C.Config.ArchiveRootName, err))
+					conf.ArchiveRootName, err))
 			}
 		}
 	}
@@ -95,14 +96,14 @@ func getUploadLocation(reader *bufio.Reader, srv *drive.Service, category string
 	if !ok {
 		categoryID, err = getLeafFromParent(srv, category, C.ArchiveRootID)
 		if err != nil {
-			if _, ok := err.(E.ErrorNotFound); C.Config.CreateMissing || (ok &&
+			if _, ok := err.(E.ErrorNotFound); conf.CreateMissing || (ok &&
 			yesNoResponse(reader, fmt.Sprintf("Category '%s' not found; create it now?", category))) {
 				categoryID, err = createDirectory(srv, category, C.ArchiveRootID)
 				if err != nil {
 					return "", errors.New(fmt.Sprintf("failed to create category '%s': %v",
 						category, err))
 				}
-				if C.Config.Verbose {
+				if conf.Verbose {
 					log.Printf("Created %q.", category)
 				}
 			} else {
@@ -145,6 +146,7 @@ func createDirectory(srv *drive.Service, leafName, parentID string) (string, err
 // Note: the caller shall check if the file with leafName exists.
 // Failing to do so will result in duplicate files.
 func createFile(srv *drive.Service, leafPath, parentID string) (string, error) {
+	conf := C.Config.Get()
 	leafName := filepath.Base(leafPath)
 	uploadFile, err := os.Open(leafPath)
 	if err != nil {
@@ -159,7 +161,7 @@ func createFile(srv *drive.Service, leafPath, parentID string) (string, error) {
 	//info, err := srv.Files.Create(createInfo).Media(uploadFile).Fields("id, md5Checksum").Do()
 	// we don't need the md5Checksum field if C.Config.ForceRecheck != true
 	intermediateCall := srv.Files.Create(createInfo).Media(uploadFile)
-	if C.ForceRecheck {
+	if conf.ForceRecheck {
 		intermediateCall = intermediateCall.Fields("id, md5Checksum")
 	} else {
 		intermediateCall = intermediateCall.Fields("id")
@@ -171,7 +173,7 @@ func createFile(srv *drive.Service, leafPath, parentID string) (string, error) {
 		retVal <- info
 	}()
 	var info *drive.File
-	if C.ForceRecheck {
+	if conf.ForceRecheck {
 		// calculate the MD5 hash of the file
 		f, err := os.Open(leafPath)
 		if err != nil {
@@ -208,10 +210,11 @@ func createFile(srv *drive.Service, leafPath, parentID string) (string, error) {
 // withRetry executes fn with retry upon failure in an exponential-backoff manner,
 // if the error returned by fn satisfies shouldRetry.
 func withRetry(ctx context.Context, fn func() error, shouldRetry func(error) bool) error {
+	conf := C.Config.Get()
 	l := U.GetLogger(ctx)
 	err := fn()
 	if shouldRetry(err) {
-		if C.Verbose {
+		if conf.Verbose {
 			l.Printf("Need to retry due to: %v", err)
 		}
 		err = retry(ctx, fn, shouldRetry, C.RetryStartingRate, C.RetryRatio)
@@ -225,8 +228,9 @@ func withRetry(ctx context.Context, fn func() error, shouldRetry func(error) boo
 // retry increases retry timeout by factor ratio every time until success, or if an error not
 // worth trying occurs.
 func retry(ctx context.Context, fn func() error, shouldRetry func(error) bool, currentRate, ratio int) error {
+	conf := C.Config.Get()
 	l := U.GetLogger(ctx)
-	if C.Verbose {
+	if conf.Verbose {
 		l.Printf("Waiting %d second(s) before retrying...", currentRate)
 	}
 	time.Sleep(time.Duration(currentRate) * time.Second)

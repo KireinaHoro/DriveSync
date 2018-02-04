@@ -9,6 +9,8 @@ import (
 	"syscall"
 
 	"github.com/sevlyar/go-daemon"
+
+	C "github.com/KireinaHoro/DriveSync/config"
 )
 
 type signalInfo struct {
@@ -101,8 +103,11 @@ func termHandler(sig os.Signal) error {
 }
 
 // reloadHandler handles configuration file reload event.
-func reloadHandler(sig os.Signal) error {
-	// TODO proper implementation
-	log.Printf("I: Received signal: %v.", sig.String())
+func reloadHandler(_ os.Signal) error {
+	err := C.ReloadConfig()
+	if err != nil {
+		log.Printf("W: Failed to reload configuration: %v; check your configuration file.", err)
+	}
+	// C.Config.Get().Target won't get changed; restart is required if change for this is needed.
 	return nil
 }

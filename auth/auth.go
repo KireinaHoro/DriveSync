@@ -103,9 +103,10 @@ func saveToken(file string, token *oauth2.Token) {
 // Note: Authenticate expects a populated C.Config. Remember to
 // call C.ReadConfig before calling this function.
 func Authenticate() *drive.Service {
+	conf := C.Config.Get()
 	ctx := context.Background()
 
-	b, err := ioutil.ReadFile(C.Config.ClientSecretPath)
+	b, err := ioutil.ReadFile(conf.ClientSecretPath)
 	if err != nil {
 		log.Fatalf("Unable to read client secret file: %v", err)
 	}

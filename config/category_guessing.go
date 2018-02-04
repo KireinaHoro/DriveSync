@@ -9,7 +9,8 @@ type Guesser interface {
 type noGuessing struct{}
 
 func (r noGuessing) Guess(_ string) string {
-	return Config.DefaultCategory
+	conf := Config.Get()
+	return conf.DefaultCategory
 }
 
 var NoGuessing noGuessing

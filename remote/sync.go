@@ -25,6 +25,7 @@ import (
 // It creates a ".sync_finished" mark file in the directory upon finishing, and will return
 // an ErrorAlreadySynced directly if that mark is present.
 func SyncDirectory(reader *bufio.Reader, srv *drive.Service, path, category string) error {
+	conf := C.Config.Get()
 	// trim the trailing slash
 	path = filepath.Clean(path)
 	markFilePath := path + "/.sync_finished"
@@ -77,7 +78,7 @@ func SyncDirectory(reader *bufio.Reader, srv *drive.Service, path, category stri
 				// record parent entry
 				parentIDs[path] = *id
 				//log.Println("added parent map entry: ", path, id)
-				if C.Config.Verbose {
+				if conf.Verbose {
 					log.Printf("Created directory '%s' (from %s) with ID %s", info.Name(), path, *id)
 				}
 			}
@@ -95,7 +96,7 @@ func SyncDirectory(reader *bufio.Reader, srv *drive.Service, path, category stri
 				if err != nil {
 					log.Fatalf("Unexpected error while uploading file '%s' (from %s): %v", info.Name(), path, err)
 				}
-				if C.Config.Verbose {
+				if conf.Verbose {
 					log.Printf("Uploaded file '%s' (from %s) with ID %s", info.Name(), path, *id)
 				}
 			}()
@@ -112,7 +113,7 @@ func SyncDirectory(reader *bufio.Reader, srv *drive.Service, path, category stri
 	if err != nil {
 		return E.ErrorSetMarkFailed(err.Error())
 	}
-	if C.Config.Verbose {
+	if conf.Verbose {
 		log.Printf("Sync completed for directory '%s' into category %s.", path, category)
 	}
 	return nil
@@ -124,6 +125,7 @@ func SyncDirectory(reader *bufio.Reader, srv *drive.Service, path, category stri
 // It creates a (".sync_finished-"+filepath.Base(path)) mark file in the directory containing
 // the file, and will return an ErrorAlreadySynced directly if that mark is present.
 func SyncFile(reader *bufio.Reader, srv *drive.Service, path, category string) error {
+	conf := C.Config.Get()
 	// clean the path to avoid surprises
 	path = filepath.Clean(path)
 	parentPath, basename := filepath.Split(path)
@@ -155,16 +157,14 @@ func SyncFile(reader *bufio.Reader, srv *drive.Service, path, category string) e
 	if err != nil {
 		log.Fatalf("Unexpected error while uploading file '%s' (from %s): %v", basename, path, err)
 	}
-	if C.Config.Verbose {
+	if conf.Verbose {
 		log.Printf("Uploaded file '%s' (from %s) with ID %s", basename, path, *id)
 	}
 	_, err = os.Create(markFilePath)
 	if err != nil {
 		return E.ErrorSetMarkFailed(err.Error())
 	}
-	if C.Config.Verbose {
-		log.Printf("Sync completed for file '%s' into category %s.", path, category)
-	}
+	log.Printf("Sync completed for file '%s' into category %s.", path, category)
 	return nil
 }
 
