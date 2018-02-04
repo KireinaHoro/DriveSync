@@ -76,8 +76,6 @@ func ReadConfig(isDaemon bool) error {
 			return errors.New(fmt.Sprintf("failed to open config file: %v", err))
 		}
 		defer f.Close()
-		//enc := json.NewEncoder(f)
-		//enc.SetIndent("", "\t")
 		var logPath, pidPath string
 		if usr.Uid == "0" {
 			logPath = "/var/log"
@@ -101,7 +99,7 @@ func ReadConfig(isDaemon bool) error {
 			UseProxy:          UseProxy,
 		}
 		Config.Set(newConfig)
-		b, err := json.MarshalIndent(Config, "", "\t")
+		b, err := json.MarshalIndent(newConfig, "", "\t")
 		if err != nil {
 			return errors.New(fmt.Sprintf("failed to marshal config: %v", err))
 		}
