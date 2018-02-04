@@ -1,13 +1,10 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"runtime"
-	"syscall"
 
-	"github.com/pkg/errors"
 	"github.com/radovskyb/watcher"
 	"github.com/sevlyar/go-daemon"
 	"google.golang.org/api/drive/v3"
@@ -24,6 +21,8 @@ var (
 )
 
 func main() {
+	// parse flag
+	parseFlags()
 	// read config
 	err := C.ReadConfig()
 	if err != nil {
@@ -39,18 +38,7 @@ func main() {
 		C.ProxySetup()
 	}
 
-	lock, err = daemon.OpenLockFile(C.Config.Target+"/.drivesync-lock", 0644)
-	defer lock.Remove()
-	if err != nil {
-		log.Fatalf("E: Failed to open lock file: %v", err)
-	} else if err = lock.Lock(); err != nil {
-		log.Fatalf("E: Failed to lock (maybe another daemon is running?): %v", err)
-	}
-
-	// register handlers for signals
-	daemon.AddCommand(nil, syscall.SIGQUIT, termHandler)
-	daemon.AddCommand(nil, syscall.SIGTERM, termHandler)
-	daemon.AddCommand(nil, syscall.SIGHUP, reloadHandler)
+	registerSignals()
 
 	// initialize context for forking into background
 	ctx := &daemon.Context{
@@ -61,6 +49,17 @@ func main() {
 		WorkDir:     "./",
 		Umask:       027,
 		Args:        os.Args,
+	}
+
+	processCommand(ctx)
+
+	// we're launched as a daemon
+	lock, err = daemon.OpenLockFile(C.Config.Target+"/.drivesync-lock", 0644)
+	defer lock.Remove()
+	if err != nil {
+		log.Fatalf("E: Failed to open lock file: %v", err)
+	} else if err = lock.Lock(); err != nil {
+		log.Fatalf("E: Failed to lock (maybe another daemon is running?): %v", err)
 	}
 
 	d, err := ctx.Reborn()
@@ -88,29 +87,4 @@ func main() {
 		log.Printf("E: %v", err)
 	}
 	log.Println("I: Daemon terminated.")
-}
-
-func termHandler(sig os.Signal) error {
-	logMessage := fmt.Sprintf("I: Received signal: %v.", sig.String())
-	if sig == syscall.SIGQUIT {
-		logMessage += " Closing handles..."
-	} else {
-		logMessage += " Exiting now..."
-	}
-	log.Print(logMessage)
-	err := lock.Remove()
-	if err != nil {
-		return errors.New(fmt.Sprintf("failed to remove lock file: %v", err))
-	}
-	w.Close()
-	// wait for things to be completed
-	if sig == syscall.SIGQUIT {
-		<-done
-	}
-	return daemon.ErrStop
-}
-
-func reloadHandler(sig os.Signal) error {
-	log.Printf("I: Received signal: %v.", sig.String())
-	return nil
 }
