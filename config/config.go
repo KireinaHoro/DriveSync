@@ -77,7 +77,7 @@ func NewConfig() config {
 
 // type config denotes the configuration read by the daemon.
 type config struct {
-	ArchiveRootName   string `json:"archive"`
+	ArchiveRootName   string `json:"archive-root"`
 	ClientSecretPath  string `json:"client-secret-path"`
 	CreateMissing     bool   `json:"create-missing"`
 	DefaultCategory   string `json:"default-category"`
