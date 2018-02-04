@@ -69,7 +69,7 @@ func tokenCacheFile() (string, error) {
 	tokenCacheDir := filepath.Join(usr.HomeDir, ".credentials")
 	os.MkdirAll(tokenCacheDir, 0700)
 	return filepath.Join(tokenCacheDir,
-		url.QueryEscape("drive-go-quickstart.json")), err
+		url.QueryEscape("drivesync-secrets.json")), err
 }
 
 // tokenFromFile retrieves a Token from a given file path.
