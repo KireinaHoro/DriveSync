@@ -46,10 +46,11 @@ func main() {
 		log.Fatalf("Failed to read config: %v", err)
 	}
 
-	conf := C.Config.Get()
-
 	// process commandline flags
 	initFlags()
+
+	// config used should be get after commandline arguments parse
+	conf := C.Config.Get()
 
 	reader := bufio.NewReader(os.Stdin)
 
