@@ -22,6 +22,31 @@ go get -u -v github.com/KireinaHoro/DriveSync/...
 Don't forget the three dots (`...`) at the end of the above command. It's recommended to add `$GOPATH/bin` to your `$PATH` so
 that you can access the executables easily.
 
+## Directory structure that DriveSync maintains
+
+```plain
+[Google Drive Root]
+├── archive-root/
+|   ├── Music/
+|   |   ├── My Great Record/
+|   |   |   ├── track01.flac
+|   |   |   ├── track02.flac
+|   |   |   └── ...
+|   |   ├── My Great Single.flac
+|   |   └── ...
+|   ├── Software
+|   |   ├── Install panicOS Low Sierra.app.tar.gz
+|   |   ├── My Awesome Tools
+|   |   |   ├── busybox.tar.gz
+|   |   |   ├── bash.tar.gz
+|   |   |   └── ...
+|   |   └── ...
+|   └── ...
+├── Your Other Awesome Folders
+|   └── ...
+└── ...
+```
+
 ## How it works
 
 DriveSync has two commandline tools available:
