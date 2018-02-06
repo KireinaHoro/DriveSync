@@ -105,6 +105,11 @@ In the above default config,
  - `LOG_ROOT` will be `/var/log` and `RUN_ROOT` will be `/var/run` if invoked as root, or both will be `${HOME}/drivesync`
    otherwise.
 
+__NOTE:__ for ease of use, DriveSync will fall back to the permissive path listed above if the one configured in `config.json`
+is not available for writing for the caller. This behavior is for scenarios of users trying to launch `drivesync` or their own
+instance of `drivesyncd` without a user-specific `config.json`, which, if without this behavior, would fail due to missing permissions
+to write to system paths.
+
 You can reload the configuration file for a running `drivesyncd` with:
 
 ```bash
