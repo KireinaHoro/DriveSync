@@ -14,6 +14,7 @@ var (
 		".idea":           {},
 		".git":            {},
 		".drivesync-lock": {},
+		".ehviewer":       {},
 	}
 	ArchiveRootID string
 	CategoryIDs   = U.NewSafeMap()
