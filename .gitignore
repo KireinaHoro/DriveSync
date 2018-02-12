@@ -2,5 +2,6 @@
 .DS_Store
 cmd/drivesyncd/*.pid
 cmd/drivesyncd/*.log
+cmd/playground/*
 *.pid
 *.log
