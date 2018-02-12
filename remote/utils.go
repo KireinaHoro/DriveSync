@@ -241,7 +241,46 @@ func createFileWithCheck(srv *drive.Service, leafPath, parentID string) (string,
 	leafName := filepath.Base(leafPath)
 	fileID, err := getLeafFromParent(srv, leafName, parentID, false)
 	if err == nil {
-		err := srv.Files.Delete(fileID).Do()
+		// check file's checksum
+		f, err := os.Open(leafPath)
+		if err != nil {
+			// non-critical; log the failure and continue
+			if C.Verbose {
+				log.Printf("Failed to open file for checksum calculation: %v", err)
+			}
+			goto AfterCheck
+		} else {
+			h := md5.New()
+			if _, err := io.Copy(h, f); err != nil {
+				// non-critical; log the failure and continue
+				if C.Verbose {
+					log.Printf("Failed to calculate checksum: %v", err)
+				}
+				goto AfterCheck
+			} else {
+				realSum := hex.EncodeToString(h.Sum(nil))
+
+				file, err := srv.Files.Get(fileID).Fields("md5Checksum").Do()
+				if err != nil {
+					// non-critical; log the failure and continue
+					if C.Verbose {
+						log.Printf("Failed to get remote file checksum: %v", err)
+					}
+					goto AfterCheck
+				}
+				if realSum == file.Md5Checksum {
+					// we have identical copies of files
+					if C.Verbose {
+						log.Printf("File %q (%s) has identical remote and local versions, skipping re-upload.",
+							leafName, fileID)
+					}
+					return fileID, nil
+				}
+			}
+		}
+
+	AfterCheck:
+		err = srv.Files.Delete(fileID).Do()
 		if err != nil {
 			if C.Verbose {
 				// non-critical; log the failure and continue
