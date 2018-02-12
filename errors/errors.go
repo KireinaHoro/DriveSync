@@ -1,5 +1,7 @@
 package errors
 
+import "strings"
+
 type ErrorNotFound string
 
 func (r ErrorNotFound) Error() string {
@@ -24,3 +26,8 @@ func (r ErrorSetMarkFailed) Error() string {
 	return string(r)
 }
 
+type ErrorMultipleResults []string
+
+func (r ErrorMultipleResults) Error() string {
+	return "multiple results: " + strings.Join(r, " ")
+}

@@ -65,11 +65,11 @@ func SyncDirectory(reader *bufio.Reader, srv *drive.Service, path, category stri
 		// routineID for logging
 		routineID := fmt.Sprintf("%05x", rand.Uint32()%0xfffff)
 		if info.IsDir() {
-			// we won't be checking if folder exists (real filesystems won't have duplicate files)
+			// createDirectoryWithCheck will check if file with the same name exists
 			id := new(string)
 			err := withRetry(U.CtxWithLoggerID(ctx, routineID), func() error {
 				var err error
-				*id, err = createDirectory(srv, info.Name(), parentID)
+				*id, err = createDirectoryWithCheck(srv, info.Name(), parentID)
 				return err
 			}, retryIfNeeded)
 			if err != nil {
@@ -86,11 +86,11 @@ func SyncDirectory(reader *bufio.Reader, srv *drive.Service, path, category stri
 			uploadWg.Add(1)
 			go func() {
 				defer uploadWg.Done()
-				// we won't be checking if file exists (real filesystems won't have duplicate files)
+				// createFileWithCheck will check if file with the same name exists
 				id := new(string)
 				err := withRetry(U.CtxWithLoggerID(ctx, routineID), func() error {
 					var err error
-					*id, err = createFile(srv, path, parentID)
+					*id, err = createFileWithCheck(srv, path, parentID)
 					return err
 				}, retryIfNeeded)
 				if err != nil {
@@ -150,7 +150,7 @@ func SyncFile(reader *bufio.Reader, srv *drive.Service, path, category string) e
 	id := new(string)
 	err = withRetry(U.CtxWithLoggerID(ctx, routineID), func() error {
 		var err error
-		*id, err = createFile(srv, path, parentID)
+		*id, err = createFileWithCheck(srv, path, parentID)
 		return err
 	}, retryIfNeeded)
 	if err != nil {

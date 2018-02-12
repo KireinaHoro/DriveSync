@@ -48,12 +48,16 @@ func yesNoResponse(reader *bufio.Reader, prompt string) bool {
 	}
 }
 
-// getLeafFromParent resolves the ID of the requested leaf folder in given folder ID.
-func getLeafFromParent(srv *drive.Service, leafName, parentID string) (string, error) {
+// getLeafFromParent resolves the ID of the requested leaf in given folder ID.
+func getLeafFromParent(srv *drive.Service, leafName, parentID string, wantFolder bool) (string, error) {
 	var q []string
 	q = append(q, fmt.Sprintf("('%s' in parents)", parentID))
 	q = append(q, fmt.Sprintf("name='%s'", leafName))
-	q = append(q, fmt.Sprintf("mimeType='%s'", C.DriveFolderType))
+	if wantFolder {
+		q = append(q, fmt.Sprintf("mimeType='%s'", C.DriveFolderType))
+	} else {
+		q = append(q, fmt.Sprintf("mimeType!='%s'", C.DriveFolderType))
+	}
 	q = append(q, "trashed=false")
 	ansList, err := srv.Files.List().Q(strings.Join(q, "and")).Fields("files(id)").Do()
 	if err != nil {
@@ -61,8 +65,12 @@ func getLeafFromParent(srv *drive.Service, leafName, parentID string) (string, e
 	} else if len(ansList.Files) == 0 {
 		return "", E.ErrorNotFound(fmt.Sprintf("error: no '%s' in '%s'", leafName, parentID))
 	} else if len(ansList.Files) > 1 {
-		// we don't expect multiple archive roots
-		return "", errors.New(fmt.Sprintf("error: multiple '%s' in '%s'", leafName, parentID))
+		// return an E.ErrorMultipleResults
+		var ret []string
+		for _, f := range ansList.Files {
+			ret = append(ret, f.Id)
+		}
+		return "", E.ErrorMultipleResults(ret)
 	}
 	return ansList.Files[0].Id, nil
 }
@@ -73,7 +81,7 @@ func getUploadLocation(reader *bufio.Reader, srv *drive.Service, category string
 	var err error
 	// get the archive root
 	if C.ArchiveRootID == "" {
-		C.ArchiveRootID, err = getLeafFromParent(srv, conf.ArchiveRootName, "root")
+		C.ArchiveRootID, err = getLeafFromParent(srv, conf.ArchiveRootName, "root", true)
 		if err != nil {
 			if _, ok := err.(E.ErrorNotFound); conf.CreateMissing || (ok &&
 				yesNoResponse(reader, "Archive root not found; create it now?")) {
@@ -94,10 +102,10 @@ func getUploadLocation(reader *bufio.Reader, srv *drive.Service, category string
 	// get the desired category
 	categoryID, ok := C.CategoryIDs.Get(category)
 	if !ok {
-		categoryID, err = getLeafFromParent(srv, category, C.ArchiveRootID)
+		categoryID, err = getLeafFromParent(srv, category, C.ArchiveRootID, true)
 		if err != nil {
 			if _, ok := err.(E.ErrorNotFound); conf.CreateMissing || (ok &&
-			yesNoResponse(reader, fmt.Sprintf("Category '%s' not found; create it now?", category))) {
+				yesNoResponse(reader, fmt.Sprintf("Category '%s' not found; create it now?", category))) {
 				categoryID, err = createDirectory(srv, category, C.ArchiveRootID)
 				if err != nil {
 					return "", errors.New(fmt.Sprintf("failed to create category '%s': %v",
@@ -136,6 +144,23 @@ func createDirectory(srv *drive.Service, leafName, parentID string) (string, err
 	} else {
 		return info.Id, nil
 	}
+}
+
+// createDirectoryWithCheck checks if the directory with given name exists in given parentID.
+// If such folder exists, it will return the ID of the existing folder; otherwise a new one
+// will be created.
+//
+// This function is to eliminate the problem of duplicate files on remote.
+func createDirectoryWithCheck(srv *drive.Service, leafName, parentID string) (string, error) {
+	fileID, err := getLeafFromParent(srv, leafName, parentID, true)
+	if err != nil {
+		if _, ok := err.(E.ErrorNotFound); ok {
+			return createDirectory(srv, leafName, parentID)
+		} else {
+			return "", err
+		}
+	}
+	return fileID, nil
 }
 
 // createFile creates the file with path leafPath inside directory
@@ -207,6 +232,45 @@ func createFile(srv *drive.Service, leafPath, parentID string) (string, error) {
 	return info.Id, nil
 }
 
+// createFileWithCheck checks if the file with given name exists in given parentID.
+// If such file exists, it will delete the existing file so that situation of duplicate files
+// won't occur.
+//
+// This function is to eliminate the problem of duplicate files on remote.
+func createFileWithCheck(srv *drive.Service, leafPath, parentID string) (string, error) {
+	leafName := filepath.Base(leafPath)
+	fileID, err := getLeafFromParent(srv, leafName, parentID, false)
+	if err == nil {
+		err := srv.Files.Delete(fileID).Do()
+		if err != nil {
+			if C.Verbose {
+				// non-critical; log the failure and continue
+				log.Printf("Failed to remove existing file %q with ID %q: %v", leafName, fileID, err)
+			}
+		} else {
+			if C.Verbose {
+				log.Printf("Removed existing file %q with ID %q.", leafName, fileID)
+			}
+		}
+	} else if err, ok := err.(E.ErrorMultipleResults); ok {
+		// multiple results; we should delete all of them
+		for _, f := range err {
+			e := srv.Files.Delete(f).Do()
+			if e != nil {
+				if C.Verbose {
+					// non-critical; log the failure and continue
+					log.Printf("Failed to remove existing file %q with ID %q: %v", leafName, f, err)
+				}
+			} else {
+				if C.Verbose {
+					log.Printf("Removed existing file %q with ID %q.", leafName, f)
+				}
+			}
+		}
+	}
+	return createFile(srv, leafPath, parentID)
+}
+
 // withRetry executes fn with retry upon failure in an exponential-backoff manner,
 // if the error returned by fn satisfies shouldRetry.
 func withRetry(ctx context.Context, fn func() error, shouldRetry func(error) bool) error {
@@ -262,4 +326,3 @@ func retryIfNeeded(err error) bool {
 	}
 	return false
 }
-
