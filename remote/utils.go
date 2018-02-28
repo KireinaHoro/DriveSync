@@ -2,11 +2,8 @@ package remote
 
 import (
 	"bufio"
-	"crypto/md5"
-	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
 	"log"
 	"mime"
 	"net"
@@ -199,19 +196,18 @@ func createFile(srv *drive.Service, leafPath, parentID string) (string, error) {
 	}()
 	var info *drive.File
 	if conf.ForceRecheck {
-		// calculate the MD5 hash of the file
 		f, err := os.Open(leafPath)
 		if err != nil {
 			return "", errors.New(fmt.Sprintf("failed to open file for checksum: %v", err))
 		}
 		defer f.Close()
 
-		h := md5.New()
-		if _, err := io.Copy(h, f); err != nil {
+		// calculate the MD5 hash of the file
+		realSum, err := U.CalculateSum(f)
+		if err != nil {
 			return "", errors.New(fmt.Sprintf("failed to calculate md5Checksum: %v", err))
 		}
 
-		realSum := hex.EncodeToString(h.Sum(nil))
 		err = <-retErr
 		if err != nil {
 			return "", err
@@ -250,16 +246,14 @@ func createFileWithCheck(srv *drive.Service, leafPath, parentID string) (string,
 			}
 			goto AfterCheck
 		} else {
-			h := md5.New()
-			if _, err := io.Copy(h, f); err != nil {
+			realSum, err := U.CalculateSum(f)
+			if err != nil {
 				// non-critical; log the failure and continue
 				if C.Verbose {
 					log.Printf("Failed to calculate checksum: %v", err)
 				}
 				goto AfterCheck
 			} else {
-				realSum := hex.EncodeToString(h.Sum(nil))
-
 				file, err := srv.Files.Get(fileID).Fields("md5Checksum").Do()
 				if err != nil {
 					// non-critical; log the failure and continue

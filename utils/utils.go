@@ -6,6 +6,9 @@ import (
 	"sync"
 
 	"golang.org/x/net/context"
+	"io"
+	"crypto/md5"
+	"encoding/hex"
 )
 
 // SafeMap is a concurrent-safe map[string]string
@@ -53,4 +56,13 @@ func CtxWithLoggerID(ctx context.Context, id string) context.Context {
 // GetLogger extracts logger from context.
 func GetLogger(ctx context.Context) logger {
 	return logger(ctx.Value(loggerID).(string))
+}
+
+// CalculateSum takes an io.Reader and calculates its md5Checksum.
+func CalculateSum(f io.Reader) (string, error) {
+	h := md5.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }

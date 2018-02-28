@@ -129,5 +129,5 @@ DriveSync is licensed under AGPLv3. The full license text is available in the re
 
 If you find this work helpful, consider buying me a glass of beer :) Accepted payment methods listed below:
 
- - PayPal: i@jsteward.moe
+ - PayPal: xubin990510@gmail.com
  - BTC: 13jTGFvjh7DAwiHZzxpaiqfehVnX2CWncC
